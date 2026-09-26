@@ -1,0 +1,28 @@
+# Autonomy Layer Default Configuration
+enabled: false
+mode: hybrid
+
+safety:
+  command_ttl_ms: 500.0
+  control_rate_hz: 10.0
+  max_slope_deg: 18.0
+  max_roll_deg: 20.0
+  max_pitch_deg: 20.0
+  stuck_detection_window_s: 2.0
+  min_obstacle_clearance_m: 0.35
+
+network:
+  disconnect_timeout_s: 3.0
+  max_rtt_ms: 1000.0
+  max_jitter_ms: 300.0
+
+planning:
+  horizon_s: 1.5
+  num_samples: 128
+  max_linear_speed: 0.8
+  max_angular_speed: 0.7
+
+sensors:
+  camera_fps: 30
+  min_camera_health: 0.5
+  imu_source: sdk

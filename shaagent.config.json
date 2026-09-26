@@ -1,0 +1,39 @@
+{
+  "$schema": "https://shaagent.dev/schema/v1.json",
+  "platform": "gemini-cli",
+  "scope": "project",
+  "model": "gemini-3.8-flash",
+  "project": {
+    "name": "forodobots",
+    "language": [
+      "python"
+    ],
+    "framework": [],
+    "infrastructure": "AWS + Kubernetes",
+    "cicd": "GitHub Actions"
+  },
+  "agents": {
+    "core": [
+      "orchestrator",
+      "debugger",
+      "researcher",
+      "planner",
+      "dev",
+      "qa",
+      "reviewer",
+      "reviewer-fix"
+    ],
+    "optional": [
+      "architecture-reviewer"
+    ]
+  },
+  "skills": {
+    "installed": [
+      "graphify",
+      "caveman",
+      "review",
+      "arch-review"
+    ]
+  },
+  "suite": "development"
+}

@@ -23,3 +23,7 @@ static/*.wav
 
 # Handoff docs for the GeNIE / Earth Rover Challenge team (local only)
 /plans/
+.agents/
+.gemini/
+.venv/
+.pytest_cache/

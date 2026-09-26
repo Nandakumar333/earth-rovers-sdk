@@ -23,6 +23,8 @@ from rtm_client import RtmClient
 from telemetry_hub import TelemetryHub
 from tts_service import generate_speech
 from video_feed import FrameBroadcaster, FrameCaptureError
+from autonomy.config import load_autonomy_config
+from autonomy.runtime import AutonomyRuntime
 
 load_dotenv()
 
@@ -48,7 +50,11 @@ async def lifespan(app: FastAPI):
         timeout=aiohttp.ClientTimeout(total=15)
     )
     warmup_task = asyncio.create_task(warmup_browser_when_ready())
+    if autonomy_config.enabled:
+        await autonomy_runtime.start()
     yield
+    if autonomy_config.enabled:
+        await autonomy_runtime.stop()
     warmup_task.cancel()
     with contextlib.suppress(asyncio.CancelledError):
         await warmup_task
@@ -93,6 +99,8 @@ app.mount("/static", StaticFiles(directory="./static"), name="static")
 
 browser_service = BrowserService()
 telemetry_hub = TelemetryHub()
+autonomy_config = load_autonomy_config()
+autonomy_runtime = AutonomyRuntime(autonomy_config)
 
 feed_broadcasters = {
     "front": FrameBroadcaster(browser_service.front_feed),
@@ -1355,3 +1363,8 @@ async def interventions_history():
             detail="Failed to retrieve interventions history",
         )
     return JSONResponse(content=response_data)
+
+
+@app.get("/autonomy/status")
+async def get_autonomy_status():
+    return JSONResponse(status_code=200, content=autonomy_runtime.status())
