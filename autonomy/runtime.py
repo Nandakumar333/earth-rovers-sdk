@@ -4,9 +4,13 @@ import asyncio
 import logging
 from typing import Dict, Optional, Set
 from autonomy.config import AutonomyConfig, load_autonomy_config
-from autonomy.contracts.state import AutonomyState
+from autonomy.contracts.commands import MotionCommand
+from autonomy.contracts.perception import CameraHealthScore
+from autonomy.contracts.state import AutonomyState, RoverState
 from autonomy.observability.events import EventManager
 from autonomy.observability.metrics import AutonomyMetrics
+from autonomy.safety.arbiter import SafetyArbiter
+from autonomy.safety.contracts import DecisionStatus, SafetyDecision
 
 logger = logging.getLogger("autonomy.runtime")
 
@@ -81,6 +85,11 @@ class AutonomyRuntime:
         self.config = config or load_autonomy_config()
         self.events = event_manager or EventManager()
         self.metrics = metrics or AutonomyMetrics()
+        self.arbiter = SafetyArbiter(
+            config=self.config,
+            event_manager=self.events,
+            metrics=self.metrics,
+        )
 
         self._state: AutonomyState = (
             AutonomyState.DISABLED if not self.config.enabled else AutonomyState.DISABLED
@@ -189,6 +198,30 @@ class AutonomyRuntime:
             return False
         return self.transition_to(AutonomyState.MANUAL_ONLY, reason=reason)
 
+    def arbitrate_command(
+        self,
+        command: MotionCommand,
+        rover_state: RoverState,
+        camera_health: Optional[CameraHealthScore] = None,
+        current_time: Optional[float] = None,
+    ) -> SafetyDecision:
+        """Arbitrate a candidate command through the edge safety engine."""
+        decision = self.arbiter.arbitrate(
+            command=command,
+            rover_state=rover_state,
+            camera_health=camera_health,
+            current_time=current_time,
+        )
+
+        # Trigger runtime state transition on emergency or veto
+        if decision.status == DecisionStatus.EMERGENCY_STOP:
+            if self._state != AutonomyState.EMERGENCY_STOP:
+                self.transition_to(AutonomyState.EMERGENCY_STOP, reason=decision.reason)
+        elif decision.status == DecisionStatus.VETOED and self._state == AutonomyState.AUTONOMOUS:
+            self.transition_to(AutonomyState.STOP, reason=decision.reason)
+
+        return decision
+
     def status(self) -> dict:
         """Detailed status snapshot of the autonomy subsystem."""
         return {
@@ -196,6 +229,9 @@ class AutonomyRuntime:
             "state": self._state.value,
             "mode": self.config.mode,
             "is_autonomous": self.is_autonomous,
+            "safety": {
+                "recovery_state": self.arbiter.recovery.state.value,
+            },
             "metrics": self.metrics.snapshot(),
             "recent_events": [e.model_dump() for e in self.events.get_events(limit=10)],
         }
